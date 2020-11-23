@@ -10,14 +10,17 @@ from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 
 class NeuralNet(pl.LightningModule):
-    def __init__(self, learning_rate):
+    def __init__(self, learning_rate=0.001, batch_size=3):
         super().__init__()
-        self.learning_rate = learning_rate
         self.layer_1 = nn.Linear(30, 16)
         self.layer_2 = nn.Linear(16, 1)
+        
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
 
         self.train_accuracy = pl.metrics.Accuracy()
         self.val_accuracy = pl.metrics.Accuracy()
+        self.test_accuracy = pl.metrics.Accuracy()
 
     def forward(self, x):
         x = self.layer_1(x)
@@ -50,21 +53,7 @@ class NeuralNet(pl.LightningModule):
         return {'loss' : loss, 'y_pred' : y_pred, 'y_true' : y}
     
     def training_epoch_end(self, outputs):
-        # This function recevies as parameters the output from "training_step()"
-        # Outputs is a list which contains a dictionary like: 
-        # [{'pred':x,'target':x,'loss':x}, {'pred':x,'target':x,'loss':x}, ...]
-
-        # Option 1
-        # We can unfold the out['y_pred'] and out['y_true']
-        # and calculate the accuracy for each batch, then just take the mean
-        # accuracy = []
-        # for out in outputs:
-        #     accuracy.append(self.train_accuracy(out['y_pred'], out['y_true']))
-        # accuracy = torch.mean(torch.stack(accuracy))
-        # print(f"Train Accuracy: {accuracy}")
-
-        # Option 2
-        # We can directly implement the method ".compute()" from the accuracy function
+    
         accuracy = self.train_accuracy.compute()
         print(f"Train Accuracy: {accuracy}")
 
@@ -91,21 +80,33 @@ class NeuralNet(pl.LightningModule):
         return {'loss' : loss, 'y_pred' : y_pred, 'target' : y}
 
     def validation_epoch_end(self, outputs):
-        
-        # # Option 1
-        # accuracy = []
-        # for out in outputs:
-        #     accuracy.append(self.val_accuracy(out['y_pred'], out['y_true']))
-        # accuracy = torch.mean(torch.stack(accuracy))
-        # print(f"Validation Accuracy: {accuracy}")
 
-        # Option 2
-        # We can directly implement the method ".compute()" from the accuracy function
         accuracy = self.val_accuracy.compute()
         print(f"Validation Accuracy: {accuracy}")
 
         # Save the metric
         self.log('Val_acc_epoch', accuracy)
+
+
+    def test_step(self, batch, batch_idx):
+        # Gets "x" and "y" tensors for current batch
+        x, y = batch
+        
+        # Feed the model and catch the prediction (no need to set the model as "evaluation" mode)
+        y_pred = self.forward(x)
+        
+        # Calculate loss for the current batch
+        loss = F.binary_cross_entropy(y_pred, y)
+
+        # Calculates accuracy for the current batch
+        test_acc_batch = self.test_accuracy(y_pred, y)
+        
+        # Save metrics for current batch
+        self.log('test_acc_batch', test_acc_batch)
+        self.log('test_loss_batch', loss)
+
+        # return {'loss' : loss, 'y_pred' : y_pred, 'target' : y}
+        return test_acc_batch
 
     def prepare_data(self):
         self.x, self.y = load_breast_cancer(return_X_y=True)
@@ -113,7 +114,7 @@ class NeuralNet(pl.LightningModule):
     def setup(self, stage=None):
 
         x_train, x_val, y_train, y_val = train_test_split(self.x, self.y, test_size=0.3)
-        x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.15)
+        x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.3)
 
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
@@ -129,20 +130,24 @@ class NeuralNet(pl.LightningModule):
 
     def train_dataloader(self):
         self.train_dataset = torch.utils.data.TensorDataset(self.x_train, self.y_train)
-        return DataLoader(self.train_dataset, batch_size=3)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size)
 
     def val_dataloader(self):
         self.val_dataset = torch.utils.data.TensorDataset(self.x_val, self.y_val)
-        return DataLoader(self.val_dataset, batch_size=3)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
 
     def test_dataloader(self):
         self.test_dataset = torch.utils.data.TensorDataset(self.x_test, self.y_test)
-        return DataLoader(self.test_dataset, batch_size=3)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
 
 if __name__ == "__main__":
-    # Init Neural Net model
+
     nn = NeuralNet(learning_rate=0.001)
-    # Init Trainer
-    trainer = pl.Trainer(max_epochs=50)
-    # Train
-    trainer.fit(nn)
+    trainer = pl.Trainer(max_epochs=50, check_val_every_n_epoch=10, precision=32, weights_summary='full', auto_scale_batch_size='binsearch')
+    lr_finder = trainer.tuner.lr_find(nn, min_lr=0.0005, max_lr=0.005, mode='linear')
+    fig = lr_finder.plot(suggest=True)
+    fig.show()
+
+    # print(f"Optimal learning rate: {lr_finder.suggestion()}")
+    # nn.learning_rate = lr_finder.suggestion()
+    # trainer.fit(nn)

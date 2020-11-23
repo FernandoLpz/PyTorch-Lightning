@@ -10,9 +10,8 @@ from sklearn.model_selection import train_test_split
 import pytorch_lightning as pl
 
 class NeuralNet(pl.LightningModule):
-    def __init__(self, learning_rate):
+    def __init__(self):
         super().__init__()
-        self.learning_rate = learning_rate
         self.layer_1 = nn.Linear(30, 16)
         self.layer_2 = nn.Linear(16, 1)
 
@@ -28,7 +27,7 @@ class NeuralNet(pl.LightningModule):
         return x.squeeze()
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        return torch.optim.Adam(self.parameters(), lr=0.001)
 
     def training_step(self, batch, batch_idx):
         # Gets "x" and "y" tensors for current batch
@@ -131,7 +130,7 @@ if __name__ == "__main__":
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=5)
 
     # Init Neural Net model
-    nn = NeuralNet(learning_rate=0.001)
+    nn = NeuralNet()
     # Init Trainer
     trainer = pl.Trainer(max_epochs=50)
     # Train
