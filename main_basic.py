@@ -7,18 +7,24 @@ from torch.utils.data import DataLoader, random_split
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 
+from pytorch_lightning.callbacks import EarlyStopping
 import pytorch_lightning as pl
 
 class NeuralNet(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, learning_rate=None):
         super().__init__()
+        # Boring model
         self.layer_1 = nn.Linear(30, 16)
         self.layer_2 = nn.Linear(16, 1)
 
         self.train_accuracy = pl.metrics.Accuracy()
         self.val_accuracy = pl.metrics.Accuracy()
 
+        self.learning_rate = learning_rate
+        self.save_hyperparameters()
+
     def forward(self, x):
+        # Simple forward
         x = self.layer_1(x)
         x = torch.relu(x)
         x = self.layer_2(x)
@@ -27,7 +33,7 @@ class NeuralNet(pl.LightningModule):
         return x.squeeze()
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001)
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
     def training_step(self, batch, batch_idx):
         # Gets "x" and "y" tensors for current batch
@@ -65,10 +71,10 @@ class NeuralNet(pl.LightningModule):
         # Option 2
         # We can directly implement the method ".compute()" from the accuracy function
         accuracy = self.train_accuracy.compute()
-        print(f"Train Accuracy: {accuracy}")
+        # print(f"Train Accuracy: {accuracy}")
 
         # Save the metric
-        self.log('Train_acc_epoch', accuracy)
+        self.log('Train_acc_epoch', accuracy, prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
         # Gets "x" and "y" tensors for current batch
@@ -84,8 +90,8 @@ class NeuralNet(pl.LightningModule):
         val_acc_batch = self.val_accuracy(y_pred, y)
         
         # Save metrics for current batch
-        self.log('val_acc_batch', val_acc_batch)
-        self.log('val_loss_batch', loss)
+        self.log('val_acc_batch', val_acc_batch, prog_bar=False)
+        self.log('val_loss_batch', loss, prog_bar=False)
 
         return {'loss' : loss, 'y_pred' : y_pred, 'target' : y}
 
@@ -101,10 +107,9 @@ class NeuralNet(pl.LightningModule):
         # Option 2
         # We can directly implement the method ".compute()" from the accuracy function
         accuracy = self.val_accuracy.compute()
-        print(f"Validation Accuracy: {accuracy}")
 
         # Save the metric
-        self.log('Val_acc_epoch', accuracy)
+        self.log('val_acc_epoch', accuracy, prog_bar=True)
 
 
 
@@ -130,8 +135,12 @@ if __name__ == "__main__":
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=5)
 
     # Init Neural Net model
-    nn = NeuralNet()
+    nn = NeuralNet(learning_rate=0.001)
+
+    early_stopping = EarlyStopping('val_acc_epoch')
+    
     # Init Trainer
-    trainer = pl.Trainer(max_epochs=50)
+    # trainer = pl.Trainer(max_epochs=10, callbacks=[early_stopping])
+    trainer = pl.Trainer(max_epochs=10, progress_bar_refresh_rate=1, weights_summary=None)
     # Train
     trainer.fit(nn, train_dataloader, val_dataloader)

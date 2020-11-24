@@ -13,6 +13,7 @@ sklearn = "*"
 matplotlib = "*"
 tensorboard = "*"
 tensorflow = "*"
+pytorch-lightning-bolts = "*"
 
 [requires]
 python_version = "3.7"

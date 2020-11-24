@@ -12,17 +12,24 @@ import pytorch_lightning as pl
 class NeuralNet(pl.LightningModule):
     def __init__(self, learning_rate=0.001, batch_size=3):
         super().__init__()
+        # Boring model
         self.layer_1 = nn.Linear(30, 16)
         self.layer_2 = nn.Linear(16, 1)
         
+        # 
         self.learning_rate = learning_rate
         self.batch_size = batch_size
 
+        # Log hyperparameters
+        self.save_hyperparameters()
+
+        # Built-in API for metrics
         self.train_accuracy = pl.metrics.Accuracy()
         self.val_accuracy = pl.metrics.Accuracy()
         self.test_accuracy = pl.metrics.Accuracy()
 
     def forward(self, x):
+        # Simple forward
         x = self.layer_1(x)
         x = torch.relu(x)
         x = self.layer_2(x)
@@ -55,7 +62,6 @@ class NeuralNet(pl.LightningModule):
     def training_epoch_end(self, outputs):
     
         accuracy = self.train_accuracy.compute()
-        print(f"Train Accuracy: {accuracy}")
 
         # Save the metric
         self.log('Train_acc_epoch', accuracy)
@@ -82,7 +88,6 @@ class NeuralNet(pl.LightningModule):
     def validation_epoch_end(self, outputs):
 
         accuracy = self.val_accuracy.compute()
-        print(f"Validation Accuracy: {accuracy}")
 
         # Save the metric
         self.log('Val_acc_epoch', accuracy)
@@ -142,12 +147,35 @@ class NeuralNet(pl.LightningModule):
 
 if __name__ == "__main__":
 
-    nn = NeuralNet(learning_rate=0.001)
-    trainer = pl.Trainer(max_epochs=50, check_val_every_n_epoch=10, precision=32, weights_summary='full', auto_scale_batch_size='binsearch')
-    lr_finder = trainer.tuner.lr_find(nn, min_lr=0.0005, max_lr=0.005, mode='linear')
+    # Instantiate model
+    model = NeuralNet()
+
+    # Initialize trainer
+    trainer = pl.Trainer(max_epochs=50, 
+                        check_val_every_n_epoch=10, 
+                        precision=32,
+                        weights_summary=None, 
+                        auto_scale_batch_size='binsearch')
+    
+    # It is implemented the built-in function for finding the
+    # optimal learning rate. Source: https://arxiv.org/pdf/1506.01186.pdf
+    lr_finder = trainer.tuner.lr_find(model, 
+                            min_lr=0.0005, 
+                            max_lr=0.005,
+                             mode='linear')
+    
+    # Plots the optimal learning rate
     fig = lr_finder.plot(suggest=True)
     fig.show()
 
-    # print(f"Optimal learning rate: {lr_finder.suggestion()}")
-    # nn.learning_rate = lr_finder.suggestion()
-    # trainer.fit(nn)
+    # The suggested optimal learning rate is now taken as the default learning rate
+    model.learning_rate = lr_finder.suggestion()
+
+    # Once the optimal learning rate is found, let's find the largest optimal batch size
+    trainer.tune(model)
+
+    # Once everything is done, let's train the model
+    trainer.fit(model)
+
+    # Testing the model
+    trainer.test()
