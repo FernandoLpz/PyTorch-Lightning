@@ -175,8 +175,8 @@ if __name__ == "__main__":
     # Once the optimal learning rate is found, let's find the largest optimal batch size
     trainer.tune(model)
 
-    # Once everything is done, let's train the model
-    trainer.fit(model)
+    # # Once everything is done, let's train the model
+    # trainer.fit(model)
 
-    # Testing the model
-    trainer.test()
+    # # Testing the model
+    # trainer.test()
