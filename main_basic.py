@@ -1,14 +1,19 @@
+# PyTorch stuff
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# For handling dataset
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 
-from pytorch_lightning.callbacks import EarlyStopping
+# The super PyTorch Lightning
 import pytorch_lightning as pl
+
+# A callback (we are gonna talk about it later)
+from pytorch_lightning.callbacks import EarlyStopping
 
 class NeuralNet(pl.LightningModule):
     def __init__(self, learning_rate=None):
@@ -17,9 +22,11 @@ class NeuralNet(pl.LightningModule):
         self.layer_1 = nn.Linear(30, 16)
         self.layer_2 = nn.Linear(16, 1)
 
+        # Metrics
         self.train_accuracy = pl.metrics.Accuracy()
         self.val_accuracy = pl.metrics.Accuracy()
 
+        # Hyperparameters
         self.learning_rate = learning_rate
         self.save_hyperparameters()
 
@@ -97,7 +104,7 @@ class NeuralNet(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         
-        # # Option 1
+        # Option 1
         # accuracy = []
         # for out in outputs:
         #     accuracy.append(self.val_accuracy(out['y_pred'], out['y_true']))
@@ -140,7 +147,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping('val_acc_epoch')
     
     # Init Trainer
-    # trainer = pl.Trainer(max_epochs=10, callbacks=[early_stopping])
-    trainer = pl.Trainer(max_epochs=10, progress_bar_refresh_rate=1, weights_summary=None)
+    trainer = pl.Trainer(max_epochs=10, callbacks=[early_stopping])
+    
     # Train
     trainer.fit(nn, train_dataloader, val_dataloader)

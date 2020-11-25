@@ -154,7 +154,8 @@ if __name__ == "__main__":
     trainer = pl.Trainer(max_epochs=50, 
                         check_val_every_n_epoch=10, 
                         precision=32,
-                        weights_summary=None, 
+                        weights_summary=None,
+                        progress_bar_refresh_rate=1, 
                         auto_scale_batch_size='binsearch')
     
     # It is implemented the built-in function for finding the
